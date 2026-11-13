@@ -24,6 +24,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Incluir resolvedor de áudio
+        shell: bash
+        run: |
+          mkdir -p resolver
+          tag=2026.10.26
+          if [ "$RUNNER_OS" = Windows ]; then bin=yt-dlp.exe; else bin=yt-dlp_linux; fi
+          base="https://github.com/yt-dlp/yt-dlp/releases/download/$tag"
+          curl -fsSL "$base/$bin" -o "resolver/$bin"
+          curl -fsSL "$base/SHA2-256SUMS" -o resolver/SHA2-256SUMS
+          (cd resolver && grep -E " [*]?$bin$" SHA2-256SUMS | sha256sum -c -)
+          if [ "$RUNNER_OS" != Windows ]; then mv resolver/yt-dlp_linux resolver/yt-dlp; chmod +x resolver/yt-dlp; fi
+          curl -fsSL "https://raw.githubusercontent.com/yt-dlp/yt-dlp/$tag/LICENSE" -o resolver/LICENSE.txt
       - run: npm install
       - run: npm run dist -- ${{ matrix.args }} --publish never
       - uses: actions/upload-artifact@v4
@@ -31,9 +43,29 @@ jobs:
           name: estereo-${{ matrix.os }}
           path: ${{ matrix.file }}
           if-no-files-found: error
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - run: sdkmanager 'platforms;android-36'
+      - run: gradle -p android :app:assembleDebug
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk Estereo-Android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: estereo-android
+          path: Estereo-Android.apk
+          if-no-files-found: error
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: [build, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -44,4 +76,5 @@ jobs:
       - run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
+
 

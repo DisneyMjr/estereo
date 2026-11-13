@@ -9,3 +9,4 @@ body{background-repeat:no-repeat}
 .track-info strong,.track-info small{display:block;overflow:hidden;text-overflow:ellipsis}
 .track-info br{display:none}
 h2+.rows{margin-top:8px}
+.app-icon{width:26px;height:26px;margin-right:8px}

@@ -203,15 +203,17 @@ function requestCatalog(delay = 0) {
         return item
       })
       catalogStatus = 'ready'
-    } catch {
+    } catch (error) {
+      if (window.mobileApp && !localStorage.getItem('musicServer')) catalogStatus = 'configuration'
       if (request!==catalogRequest || !onlineView()) return
-      catalogStatus = 'error'
+      if (catalogStatus!=='configuration') catalogStatus = 'error'
     }
     renderView(true)
   },delay)
 }
 
 function catalogContent() {
+  if (catalogStatus==='configuration') return '<div class="empty"><p>Configure um servidor de música para acessar o catálogo.</p>'+button('server-settings','Configurar servidor','Configurar servidor')+'</div>'
   if (catalogStatus==='loading') return '<p role="status">Carregando faixas…</p>'
   if (catalogStatus==='error') return '<div class="empty"><h2>Catálogo indisponível</h2><p>Verifique a conexão e tente novamente.</p>'+button('retry-catalog','Tentar novamente','Tentar novamente')+'</div>'
   if (!catalogItems.length) return '<div class="empty"><h2>Nenhuma faixa encontrada</h2><p>Experimente outro título ou artista.</p></div>'
@@ -268,7 +270,7 @@ function renderView(updateResults = false) {
   const scrollTop = parent.scrollTop
   let body
   if (view === 'settings') {
-    body = '<h1>Preferências</h1><div class="empty"><h2>Biblioteca local</h2><p>Importe arquivos de áudio, playlists M3U e letras LRC. Seus arquivos ficam no perfil deste app.</p>'+
+    body = '<h1>Preferências</h1>'+(window.mobileApp?button('server-settings','Configurar servidor','Configurar servidor'):'')+'<div class="empty"><h2>Biblioteca local</h2><p>Importe arquivos de áudio, playlists M3U e letras LRC. Seus arquivos ficam no perfil deste app.</p>'+
       button('import','Importar arquivos','Importar arquivos','class="primary"')+
       '</div><div class="empty"><h2>Teclado</h2><p><kbd>Espaço</kbd> Reproduzir ou pausar · <kbd>Esc</kbd> Fechar letras ou fila</p></div>'
   } else if (onlineView()) {
@@ -429,7 +431,7 @@ async function playTrack(id) {
             if (item.videoId!==videoId) await patchTrack(item.id,{videoId})
             return
           } catch(error) {
-            if (error.message.includes('yt-dlp')) throw error
+            if (error.message.includes('componente de áudio')) throw error
             if (request!==loading) return
           }
         }
@@ -503,6 +505,16 @@ function trackMenu(id) {
 }
 const handlers = {
   navigate: id => go(id),
+  'server-settings': () => {
+    const input = prompt('Endereço HTTPS do servidor de música',localStorage.getItem('musicServer') || '')
+    if (input===null) return
+    try {
+      const url=new URL(input)
+      if (url.protocol!=='https:' || url.username || url.password || url.search || url.hash) throw Error()
+      localStorage.setItem('musicServer',url.href.replace(/\/$/,''))
+      go('home')
+    } catch { notify('Informe um endereço HTTPS válido.') }
+  },
   'retry-catalog': () => requestCatalog(),
   spotify: spotifyDialog,
   import: () => $('#files').click(),

@@ -85,7 +85,7 @@ const exec = promisify(execFile)
 
 async function stream(id) {
   if (typeof id!=='string' || !/^[\w-]{11}$/.test(id)) throw new Error('Identificador de faixa inválido.')
-  const executable = process.env.ESTEREO_YTDLP || (process.platform==='win32'?'yt-dlp.exe':'yt-dlp')
+  const executable = process.env.ESTEREO_YTDLP || (process.resourcesPath && require('node:fs').existsSync(require('node:path').join(process.resourcesPath, 'resolver', process.platform==='win32'?'yt-dlp.exe':'yt-dlp')) ? require('node:path').join(process.resourcesPath, 'resolver', process.platform==='win32'?'yt-dlp.exe':'yt-dlp') : null) || (process.platform==='win32'?'yt-dlp.exe':'yt-dlp')
   let output
   try {
     const result = await exec(executable,[
@@ -94,7 +94,7 @@ async function stream(id) {
     ],{timeout:22000,maxBuffer:256*1024,windowsHide:true})
     output = result.stdout.trim()
   } catch(error) {
-    if (error.code==='ENOENT') throw new Error('Instale o yt-dlp para tocar faixas online.')
+    if (error.code==='ENOENT') throw new Error('O componente de áudio ficou indisponível. Reinstale ou atualize o Estéreo.')
     throw new Error('Não foi possível obter o áudio desta gravação.')
   }
   let url

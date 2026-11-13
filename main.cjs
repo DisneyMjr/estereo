@@ -20,7 +20,7 @@ async function open() {
   const window = new BrowserWindow({
     width:1240,height:820,minWidth:380,minHeight:560,
     titleBarStyle:'hidden',titleBarOverlay:{color:'#121320',symbolColor:'#ddddea',height:43},
-    backgroundColor:'#10111b',
+    backgroundColor:'#10111b',icon:path.join(__dirname,'icon.png'),
     webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,preload:path.join(__dirname,'preload.cjs')}
   })
   trustedContents = window.webContents
@@ -38,5 +38,6 @@ app.whenReady().then(async ()=>{
   app.on('activate',()=>{if (!BrowserWindow.getAllWindows().length) open()})
 })
 app.on('window-all-closed',()=>{if (process.platform!=='darwin') app.quit()})
+
 
 

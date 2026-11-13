@@ -13,7 +13,7 @@ npm start
 
 ## Catálogo online
 
-O Estéreo abre em **Início** com faixas em destaque. Digite um título ou artista no campo de busca e clique numa faixa para tocar. A busca consulta resultados públicos de música e mostra até 28 faixas por pesquisa. A reprodução usa o player do Estéreo e requer conexão e yt-dlp instalado, conforme as instruções abaixo. Favoritas e faixas adicionadas a playlists ficam salvas na biblioteca.
+O Estéreo abre em **Início** com faixas em destaque. Digite um título ou artista no campo de busca e clique numa faixa para tocar. A busca consulta resultados públicos de música e mostra até 28 faixas por pesquisa. A reprodução usa o player do Estéreo e requer conexão. Favoritas e faixas adicionadas a playlists ficam salvas na biblioteca.
 
 ## Usar a biblioteca local
 
@@ -28,7 +28,7 @@ Os arquivos importados, as playlists, as favoritas e as letras são armazenados 
 
 Na **Biblioteca**, clique em **Importar link**, cole o link de uma playlist pública e clique em **Importar**. Abra a coleção e clique em **Reproduzir**. O Estéreo solicita a lista que o Spotify expõe no player público e salva os metadados localmente. Se você importar o mesmo link novamente, o app atualiza a coleção existente.
 
-Para tocar faixas online, instale [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) e deixe o executável no PATH. No Windows, você pode usar `winget install --id yt-dlp.yt-dlp -e`. Também é possível definir `ESTEREO_YTDLP` com o caminho completo do executável antes de abrir o app.
+Os instaladores de Windows e Linux incluem o resolvedor de áudio. Ao executar o código-fonte com npm start, defina ESTEREO_YTDLP com o caminho para uma instalação do yt-dlp.
 
 Ao tocar uma faixa, o Estéreo busca gravações por título, artista e duração no YouTube. O resolvedor fornece um endereço temporário de áudio para o player do Estéreo, que reproduz o áudio diretamente. Na tela de letras, use **Vincular .lrc** para sincronizar um arquivo de letra com a faixa em reprodução, inclusive uma faixa remota.
 
@@ -36,3 +36,7 @@ A importação inclui as faixas que o Spotify expõe no player público, que pod
 
 A versão atual usa Electron. Para hospedar uma versão no Lovable, seria preciso portar a interface para o navegador e disponibilizar a importação e o resolvedor por uma API hospedada.
 
+
+## Android
+
+O APK usa a mesma interface para a biblioteca local, fila e letras. Para acessar o catálogo online, execute o servidor em um host com Node.js e yt-dlp e exponha-o via HTTPS. Defina ESTEREO_PUBLIC_ORIGIN com o endereço público e execute node server.cjs. Informe o mesmo endereço em Preferências → Configurar servidor. O APK da release usa assinatura de depuração para instalação manual.
