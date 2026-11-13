@@ -55,7 +55,11 @@ jobs:
         with:
           gradle-version: '8.13'
       - run: |
-          sdkmanager 'platforms;android-36'
+          if [ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]; then
+            sdk="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)"
+            test -n "$sdk"
+            "$sdk" 'platforms;android-36'
+          fi
       - run: gradle -p android :app:assembleDebug
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk Estereo-Android.apk
       - uses: actions/upload-artifact@v4
@@ -76,6 +80,7 @@ jobs:
       - run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
+
 
 
 
