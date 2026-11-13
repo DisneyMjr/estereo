@@ -1,0 +1,36 @@
+{
+  "name": "estereo",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0"
+  },
+  "description": "Player de música desktop em português",
+  "productName": "Estéreo",
+  "author": "DisneyMjr",
+  "build": {
+    "appId": "com.disneymjr.estereo",
+    "artifactName": "Estereo-${version}-${arch}.${ext}",
+    "files": [
+      "*.cjs",
+      "*.js",
+      "index.html",
+      "style.css",
+      "package.json"
+    ],
+    "win": {
+      "signAndEditExecutable": false
+    },
+    "linux": {
+      "category": "Audio",
+      "maintainer": "DisneyMjr <DisneyMjr@users.noreply.github.com>"
+    }
+  }
+}
+

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob: https://*.googlevideo.com; img-src 'self' blob:; object-src 'none'; base-uri 'none'">
+<title>Estéreo</title>
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="titlebar"><span class="mark" aria-hidden="true">▮▅▇</span> Estéreo</header>
+<nav class="rail" aria-label="Navegação"></nav>
+<main id="view"></main>
+<footer id="player" aria-label="Reprodução"></footer>
+<aside id="queue" class="panel" hidden aria-label="Fila"></aside>
+<section id="lyrics" hidden aria-label="Letras sincronizadas"></section>
+<div id="notice" role="status"></div>
+<dialog id="dialog"></dialog>
+<input type="file" id="files" multiple accept="audio/*,.mp3,.m4a,.flac,.wav,.ogg,.opus,.aac,.lrc,.m3u,.m3u8" hidden>
+<input type="file" id="lyricsFile" accept=".lrc" hidden>
+<audio id="audio" preload="metadata"></audio>
+</body>
+</html>
+
+
