@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob: https://*.googlevideo.com; img-src 'self' blob: https://i.ytimg.com; connect-src https://lrclib.net; object-src 'none'; base-uri 'none'">
 <title>Estéreo</title><link rel="icon" href="icon.png">
 <link rel="stylesheet" href="style.css">
-<script src="app.js" defer></script>
+
 </head>
 <body>
 <header class="titlebar"><img class="app-icon" src="icon.png" alt=""> Estéreo</header>
@@ -16,12 +16,20 @@
 <aside id="queue" class="panel" hidden aria-label="Fila"></aside>
 <section id="lyrics" hidden aria-label="Letras sincronizadas"></section>
 <div id="notice" role="status"></div>
+<dialog id="settings-panel" aria-label="Configurações"></dialog>
 <dialog id="dialog"></dialog>
 <input type="file" id="files" multiple accept="audio/*,.mp3,.m4a,.flac,.wav,.ogg,.opus,.aac,.lrc,.m3u,.m3u8" hidden>
 <input type="file" id="lyricsFile" accept=".lrc" hidden>
-<audio id="audio" preload="metadata"></audio>
+<audio id="audio" crossorigin="anonymous" preload="metadata"></audio>
+<section id="profiles" hidden aria-labelledby="profile-title"><div class="profile-card">
+  <div class="profile-brand"><div class="profile-logo"><img src="icon.png" alt="">Estéreo</div><h1 id="profile-title">Sua música, do seu jeito</h1></div>
+  <div class="profile-content"><h2>Escolher perfil</h2><p>Perfis locais guardam bibliotecas, playlists e favoritas separadas neste aparelho.</p>
+  <div class="actions" data-profile-list></div>
+  <form id="profile-form"><label for="profile-name">Nome do perfil</label><input id="profile-name" name="profile" type="text" maxlength="48" required autocomplete="off"><button class="primary">Criar perfil</button></form>
+  <button type="button" id="guest">Continuar como convidado</button></div>
+</div></section>
+<dialog id="equalizer" aria-label="Equalizador"></dialog><script src="profiles.js" defer></script><script src="equalizer.js" defer></script>
+<script src="settings.js" defer></script>
+<script src="app.js" defer></script>
 </body>
 </html>
-
-
-

@@ -19,7 +19,7 @@ http.createServer(async (req,res)=>{
       if (/^bytes=\d+-\d*$/.test(req.headers.range || '')) options.headers={Range:req.headers.range}
       const audio = await fetch(entry.url,options)
       if (!audio.ok || !audio.body) { res.writeHead(502).end(); return }
-      const headers = {}
+      const headers = {'Access-Control-Allow-Origin':clientOrigin}
       for (const name of ['content-type','content-length','accept-ranges','content-range']) {
         const value = audio.headers.get(name)
         if (value) headers[name] = value
@@ -60,4 +60,3 @@ http.createServer(async (req,res)=>{
   } catch(error) { res.end(JSON.stringify({error:error.message || 'Servidor indisponível.'})) }
   finally { active-- }
 }).listen(Number(process.env.PORT || 8787))
-

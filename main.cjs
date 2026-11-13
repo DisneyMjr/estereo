@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron')
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron')
 const path = require('node:path')
 const remote = require('./remote.cjs')
 let trustedContents
@@ -25,7 +25,7 @@ async function open() {
   })
   trustedContents = window.webContents
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}))
-  window.webContents.on('will-navigate',event=>event.preventDefault())
+  window.webContents.on('will-navigate',(event,url)=>{ if (url!==window.webContents.getURL()) event.preventDefault() })
   await window.loadFile(path.join(__dirname,'index.html'))
 }
 app.whenReady().then(async ()=>{
@@ -33,11 +33,16 @@ app.whenReady().then(async ()=>{
   register('match',remote.youtube)
   register('catalog',remote.catalog)
   register('stream',remote.stream)
+  const links = new Map(Object.entries({tiktok:'https://www.tiktok.com/@disneymkt',instagram:'https://www.instagram.com/disneymkt/',docs:'https://github.com/DisneyMjr/estereo#readme',support:'https://github.com/DisneyMjr/estereo/issues'}))
+  register('link',key=>{ if (links.has(key)) return shell.openExternal(links.get(key)) })
   session.defaultSession.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false))
+  session.defaultSession.webRequest.onHeadersReceived({urls:['https://*.googlevideo.com/*']},(details,callback)=>{
+    const headers = details.responseHeaders || {}
+    for (const key of Object.keys(headers)) if (key.toLowerCase()==='access-control-allow-origin') delete headers[key]
+    headers['Access-Control-Allow-Origin']=['null']
+    callback({responseHeaders:headers})
+  })
   await open()
   app.on('activate',()=>{if (!BrowserWindow.getAllWindows().length) open()})
 })
 app.on('window-all-closed',()=>{if (process.platform!=='darwin') app.quit()})
-
-
-

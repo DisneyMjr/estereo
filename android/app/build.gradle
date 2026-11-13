@@ -6,14 +6,14 @@ android {
         applicationId 'com.disneymjr.estereo'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '1.1.4'
+        versionCode 4
+        versionName '1.1.5'
     }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/estereo')
 }
 tasks.register('copyEstereo', Copy) {
     from(rootProject.projectDir.parentFile) {
-        include 'index.html', 'app.js', 'style.css', 'mobile.js'
+        include 'index.html', 'app.js', 'style.css', 'mobile.js', 'profiles.js', 'equalizer.js', 'settings.js'
     }
     into layout.buildDirectory.dir('generated/estereo')
     filesMatching("index.html") { filter { line -> line.replace('connect-src https://lrclib.net; ', '').replace("media-src 'self' blob: https://*.googlevideo.com; ", '').replace("object-src 'none'", "connect-src https:; media-src 'self' blob: https:; object-src 'none'").replace('<script src="app.js" defer></script>', '<script src="mobile.js" defer></script><script src="app.js" defer></script>') } }
@@ -21,9 +21,3 @@ tasks.register('copyEstereo', Copy) {
 tasks.named('copyEstereo') { from(rootProject.projectDir.parentFile) { include 'icon.png' } }
 tasks.named('preBuild') { dependsOn 'copyEstereo' }
 dependencies { implementation 'androidx.webkit:webkit:1.13.0' }
-
-
-
-
-
-

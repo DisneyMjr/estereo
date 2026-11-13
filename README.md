@@ -40,3 +40,7 @@ A versão atual usa Electron. Para hospedar uma versão no Lovable, seria precis
 ## Android
 
 O APK usa a mesma interface para a biblioteca local, fila e letras. Para acessar o catálogo online, execute o servidor em um host com Node.js e yt-dlp e exponha-o via HTTPS. Defina ESTEREO_PUBLIC_ORIGIN com o endereço público e execute node server.cjs. Informe o mesmo endereço em Preferências → Configurar servidor. O APK da release usa assinatura de depuração para instalação manual.
+
+## Configurações e perfis
+
+Abra a engrenagem na barra lateral. Os perfis são locais e separam a biblioteca neste aparelho. O perfil Convidado conserva a biblioteca criada nas versões anteriores. O equalizador de dez bandas fica na barra do player.

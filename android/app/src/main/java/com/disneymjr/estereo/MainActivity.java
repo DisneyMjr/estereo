@@ -31,6 +31,13 @@ public final class MainActivity extends Activity {
                 return assets.shouldInterceptRequest(request.getUrl());
             }
             @Override public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                String url = uri.toString();
+                if (url.equals("https://appassets.androidplatform.net/assets/index.html")) return false;
+                if (url.equals("https://www.tiktok.com/@disneymkt") || url.equals("https://www.instagram.com/disneymkt/") || url.equals("https://github.com/DisneyMjr/estereo#readme") || url.equals("https://github.com/DisneyMjr/estereo/issues")) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+                    catch (ActivityNotFoundException ignored) {}
+                }
                 return true;
             }
         });
@@ -57,4 +64,3 @@ public final class MainActivity extends Activity {
         }
     }
 }
-

@@ -97,7 +97,7 @@ function notify(message) {
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('estereo-library', 1)
+    const request = indexedDB.open(localStorage.getItem(profileKey)==='guest' ? 'estereo-library' : 'estereo-library-'+localStorage.getItem(profileKey), 1)
     request.onupgradeneeded = () => {
       for (const store of ['tracks','lists']) request.result.createObjectStore(store, { keyPath:'id' })
     }
@@ -240,6 +240,7 @@ async function saveCatalogTrack(id) {
 
 
 function go(next) {
+  if (next==='settings') { showSettings(); return }
   clearTimeout(catalogTimer)
   catalogRequest++
   view = next
@@ -279,11 +280,7 @@ function renderView(updateResults = false) {
   const selection = focused ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null
   const scrollTop = parent.scrollTop
   let body
-  if (view === 'settings') {
-    body = '<h1>Preferências</h1>'+(window.mobileApp?button('server-settings','Configurar servidor','Configurar servidor'):'')+'<div class="empty"><h2>Biblioteca local</h2><p>Importe arquivos de áudio, playlists M3U e letras LRC. Seus arquivos ficam no perfil deste app.</p>'+
-      button('import','Importar arquivos','Importar arquivos','class="primary"')+
-      '</div><div class="empty"><h2>Teclado</h2><p><kbd>Espaço</kbd> Reproduzir ou pausar · <kbd>Esc</kbd> Fechar letras ou fila</p></div>'
-  } else if (onlineView()) {
+  if (onlineView()) {
     const home = view==='home'
     const filters = home ? '<div class="actions">'+[['all','Tudo'],['lists','Playlists'],['tracks','Faixas']].map(([id,label])=>button('filter',label,label,'data-id="'+id+'" aria-pressed="'+(filter===id)+'"')).join('')+'</div>' : ''
     const tools = home ? button('home-layout','Visualização em grade','▦','data-id="grid" aria-pressed="'+(layout==='grid')+'"')+
@@ -351,7 +348,7 @@ function renderPlayer() {
     '<span><strong>'+escape(item?.title || 'Nenhuma faixa')+'</strong><br><small>'+escape(item?.artist || (item?'Arquivo local':'Selecione uma música'))+'</small></span></div>'+
     '<div class="transport">'+controls()+seek()+'</div><div class="actions right">'+
     action('shuffle','Embaralhar',pressed(shuffle),'icon mobile-hide')+action('repeat','Repetir faixa',pressed(repeat))+
-    action('heart','Favoritar faixa',pressed(!!item?.favorite))+
+    action('heart','Favoritar faixa',pressed(!!item?.favorite))+button('equalizer','Equalizador','≋','class="icon"')+
     action('lyrics','Abrir letras',pressed(!$('#lyrics').hidden))+action('queue','Abrir fila',pressed(!$('#queue').hidden))+
     '<input class="volume" data-volume type="range" min="0" max="1" step=".01" aria-label="Volume"></div>'
 }
@@ -467,6 +464,7 @@ function render() {
 async function playTrack(id) {
   const item = track(id)
   if (!item) return
+  if (eqSettings.enabled) enableEq().catch(()=>{})
   const request = ++loading
   audio.pause()
   audio.removeAttribute('src')
@@ -539,7 +537,7 @@ async function togglePlayback() {
   if (!current) return nextTrack()
   if (resolving) return
   if (!audio.getAttribute('src') || audio.error) return playTrack(current)
-  if (audio.paused) await audio.play()
+  if (audio.paused) { if (eqSettings.enabled) enableEq().catch(()=>{}); await audio.play() }
   else audio.pause()
 }
 function closeDialog() { if (dialog.open) dialog.close() }
@@ -573,6 +571,13 @@ function trackMenu(id) {
 }
 const handlers = {
   navigate: id => go(id),
+  equalizer: showEq,
+  'settings-tab': id => { settingsPage=id; renderSettings(); settingsPanel.querySelector('[data-id="'+id+'"]')?.focus() },
+  'close-settings': () => settingsPanel.close(),
+  'settings-eq': () => { settingsPanel.close(); showEq() },
+  'setting-choice': (id,element) => { savePreference(element.dataset.key,id); renderSettings() },
+  'external-link': id => window.mobileApp ? location.assign(externalLinks[id]) : remoteCall('link',id),
+  'switch-profile': () => { localStorage.removeItem(profileKey); location.reload() },
   'server-settings': () => {
     const input = prompt('Endereço HTTPS do servidor de música',localStorage.getItem('musicServer') || '')
     if (input===null) return
@@ -643,9 +648,23 @@ const handlers = {
   'offset-down': () => current && patchTrack(current,{offset:Math.round(((track(current).offset||0)-.1)*10)/10}),
   'offset-up': () => current && patchTrack(current,{offset:Math.round(((track(current).offset||0)+.1)*10)/10})
 }
+document.addEventListener('dblclick',event=>{
+  const row=event.target.closest('[data-action="track"]')
+  if (!row || preferences.doubleClick!=='queue') return
+  pending.push(row.dataset.id)
+  renderQueue()
+  notify('Faixa adicionada à fila.')
+})
+let trackClickTimer
+navigator.mediaDevices?.addEventListener('devicechange',()=>{ if (preferences.devicePause) audio.pause() })
 document.addEventListener('click',async event => {
   const element=event.target.closest('[data-action]')
   if (!element || !db) return
+  if (element.dataset.action==='track' && preferences.doubleClick==='queue' && event.detail>0) {
+    clearTimeout(trackClickTimer)
+    if (event.detail===1) trackClickTimer=setTimeout(()=>handlers.track(element.dataset.id).catch(()=>notify('Erro ao tocar faixa.')),300)
+    return
+  }
   try { await handlers[element.dataset.action]?.(element.dataset.id,element) }
   catch { notify('Não foi possível concluir a ação.') }
 })
@@ -658,10 +677,29 @@ document.addEventListener('input',event => {
   if ('volume' in element.dataset) { audio.volume=Number(element.value); localStorage.setItem('volume',element.value) }
 })
 document.addEventListener('keydown',event => {
-  if (dialog.open) return
+  if (dialog.open || settingsPanel.open || eqElement.open) return
   if (event.key==='Escape') {
     if (!$('#lyrics').hidden) handlers['close-lyrics']()
     else handlers['close-queue']()
+  }
+  if (!db || event.target.closest('input, textarea, select, [contenteditable]')) return
+  if (event.key==='/' || event.key.toLowerCase()==='q' || event.key.toLowerCase()==='f' || event.key.toLowerCase()==='m' || event.key.startsWith('Arrow')) {
+    if (event.altKey || event.metaKey || (event.ctrlKey && !['ArrowLeft','ArrowRight'].includes(event.key))) return
+    event.preventDefault()
+    const task = async () => {
+      if (event.key==='/') { go('search'); $('[data-query]')?.focus() }
+      else if (event.key.toLowerCase()==='q') handlers.queue()
+      else if (event.key.toLowerCase()==='f') { if ($('#lyrics').hidden) handlers.lyrics(); else handlers['close-lyrics']() }
+      else if (event.key.toLowerCase()==='m') audio.muted=!audio.muted
+      else if (event.key==='ArrowUp' || event.key==='ArrowDown') {
+        audio.volume=Math.min(1,Math.max(0,audio.volume+(event.key==='ArrowUp'?.05:-.05)))
+        localStorage.setItem('volume',audio.volume)
+        updatePlayback()
+      } else if (event.ctrlKey) await (event.key==='ArrowRight'?handlers.next():handlers.previous())
+      else if (Number.isFinite(audio.duration)) audio.currentTime=Math.max(0,Math.min(audio.duration,audio.currentTime+(event.key==='ArrowRight'?5:-5)))
+    }
+    task().catch(()=>notify('Não foi possível concluir a ação.'))
+    return
   }
   if (event.code==='Space' && !event.target.closest('button,input,textarea') && db) {
     event.preventDefault()
@@ -695,7 +733,19 @@ audio.addEventListener('loadedmetadata',() => {
     patchTrack(current,{duration:audio.duration}).catch(()=>notify('Não foi possível salvar a duração.'))
 })
 audio.addEventListener('ended',() => {
-  if (pending.length) nextTrack().catch(()=>notify('Não foi possível avançar a fila.'))
+  if (pending.length) { nextTrack().catch(()=>notify('Não foi possível avançar a fila.')); return }
+  if (!preferences.similar || !track(current)?.artist) return
+  const finished=current
+  const attempt=loading
+  remoteCall('catalog',track(finished).artist).then(results=>{
+    if (loading!==attempt || pending.length || !audio.ended || !preferences.similar) return
+    const seen=new Set([finished,...history].map(id=>track(id)?.videoId))
+    const result=results.find(item=>!seen.has(item.videoId))
+    if (!result) return
+    const id='online-'+result.videoId
+    if (!track(id)) onlineTracks.set(id,{...result,id,source:'youtube',favorite:false,lines:[],tone:0})
+    return playTrack(id)
+  }).catch(()=>notify('Não foi possível localizar outras faixas.'))
 })
 audio.addEventListener('error',() => !resolving && notify('Formato de áudio indisponível neste dispositivo.'))
 const savedVolume = Number(localStorage.getItem('volume')??.8)
@@ -710,9 +760,6 @@ async function start() {
   requestCatalog()
 }
 
-start().catch(() => {
+;(localStorage.getItem(profileKey) ? start() : Promise.resolve().then(profileScreen)).catch(() => {
   $('#view').innerHTML='<h1>Biblioteca indisponível</h1><p>O armazenamento local não pôde ser aberto. Feche e reabra o aplicativo.</p>'
 })
-
-
-
