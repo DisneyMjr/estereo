@@ -114,7 +114,7 @@ function transact(store, mode, run) {
     transaction.onerror = () => reject(transaction.error)
   })
 }
-const track = id => tracks.find(item => item.id === id) || onlineTracks.get(id)
+const track = id => onlineTracks.get(id) || tracks.find(item => item.id === id)
 const list = id => lists.find(item => item.id === id)
 const saveList = item => transact('lists','readwrite',store => store.put(item))
 
@@ -126,6 +126,8 @@ async function patchTrack(id, fields) {
     }
   })
   Object.assign(track(id),fields)
+  const saved = tracks.find(item=>item.id===id)
+  if (saved) Object.assign(saved,fields)
   render()
 }
 
@@ -184,7 +186,8 @@ async function importFiles(files) {
 
 const button = (action,label,content,attrs='') => '<button type="button" data-action="'+action+'" aria-label="'+label+'" title="'+label+'" '+attrs+'>'+content+'</button>'
 const action = (name,label,extra='',className='icon') => button(name,label,icons[name]||escape(label),'class="'+className+'" '+extra)
-const art = (item,symbol='♫',extra='') => '<span aria-hidden="true" class="art tone'+(item?.tone || 0)+' '+extra+'">'+symbol+'</span>'
+const cover = item => /^(?:https:\/\/i\.ytimg\.com\/vi\/[\w-]{11}\/hqdefault\.jpg)$/.test(item?.cover || '') ? '<img src="'+escape(item.cover)+'" alt="" loading="lazy">' : ''
+const art = (item,symbol='♫',extra='') => '<span aria-hidden="true" class="art tone'+(item?.tone || 0)+' '+extra+'">'+symbol+cover(item)+'</span>'
 function requestCatalog(delay = 0) {
   clearTimeout(catalogTimer)
   const request = ++catalogRequest
@@ -198,7 +201,7 @@ function requestCatalog(delay = 0) {
       if (request!==catalogRequest || !onlineView()) return
       catalogItems = results.map(result=>{
         const id = 'online-'+result.videoId
-        const item = track(id) || {...result,id,source:'youtube',favorite:false,lines:[],tone:0}
+        const item = {...result,id,source:'youtube',favorite:false,lines:[],tone:0,...track(id),cover:result.cover}
         onlineTracks.set(id,item)
         return item
       })
@@ -217,7 +220,14 @@ function catalogContent() {
   if (catalogStatus==='loading') return '<p role="status">Carregando faixas…</p>'
   if (catalogStatus==='error') return '<div class="empty"><h2>Catálogo indisponível</h2><p>Verifique a conexão e tente novamente.</p>'+button('retry-catalog','Tentar novamente','Tentar novamente')+'</div>'
   if (!catalogItems.length) return '<div class="empty"><h2>Nenhuma faixa encontrada</h2><p>Experimente outro título ou artista.</p></div>'
-  return '<h2>'+(query.trim()?'Resultados':'Em destaque')+'</h2>'+trackRows(catalogItems)
+  if (view==='search' || query.trim()) return trackRows(catalogItems)
+  const collectionCards = tile('favorites','Favoritas',tracks.filter(item=>item.favorite).length+' faixa(s)','♥')+
+    lists.map(item=>button('navigate',escape(item.name),art(track(item.ids[0]))+'<strong>'+escape(item.name)+'</strong><small>'+item.ids.length+' faixa(s)</small>','class="tile" data-id="list:'+item.id+'"')).join('')
+  const musicCards = catalogItems.map(item=>button('track','Tocar '+escape(item.title),
+    art(item)+'<strong>'+escape(item.title)+'</strong><small>'+escape(item.artist)+'</small>',
+    'class="tile" data-id="'+item.id+'"')).join('')
+  if (layout==='list') return '<div class="menu">'+(filter==='tracks'?'':collectionCards)+'</div>'+(filter==='lists'?'':trackRows(catalogItems))
+  return '<div class="grid home-grid">'+(filter==='tracks'?'':collectionCards)+(filter==='lists'?'':musicCards)+'</div>'
 }
 
 async function saveCatalogTrack(id) {
@@ -274,7 +284,12 @@ function renderView(updateResults = false) {
       button('import','Importar arquivos','Importar arquivos','class="primary"')+
       '</div><div class="empty"><h2>Teclado</h2><p><kbd>Espaço</kbd> Reproduzir ou pausar · <kbd>Esc</kbd> Fechar letras ou fila</p></div>'
   } else if (onlineView()) {
-    body = '<h1>'+(view==='home'?'Início':'Buscar')+'</h1><div class="toolbar">'+searchBox('Buscar título ou artista')+'</div>'+catalogContent()
+    const home = view==='home'
+    const filters = home ? '<div class="actions">'+[['all','Tudo'],['lists','Playlists'],['tracks','Faixas']].map(([id,label])=>button('filter',label,label,'data-id="'+id+'" aria-pressed="'+(filter===id)+'"')).join('')+'</div>' : ''
+    const tools = home ? button('home-layout','Visualização em grade','▦','data-id="grid" aria-pressed="'+(layout==='grid')+'"')+
+      button('home-layout','Visualização em lista','☰','data-id="list" aria-pressed="'+(layout==='list')+'"')+
+      button('new-list','Criar playlist','＋ Criar playlist','class="primary"') : ''
+    body = '<h1>'+(home?'Início':'Buscar')+'</h1><div class="toolbar home-toolbar">'+filters+'<div class="actions">'+searchBox('Buscar título ou artista')+tools+'</div></div>'+catalogContent()
   } else if (view === 'favorites' || view.startsWith('list:')) {
     const playlist = list(view.slice(5))
     const favorites = view === 'favorites'
@@ -351,6 +366,59 @@ function renderQueue() {
     }).join('')+'</div>' : '<p>A fila está vazia.</p>')
 }
 
+const lyricRequests = new Map()
+const lyricResults = new Map()
+let lyricRetryAfter = 0
+
+async function loadLyrics(id, retry = false) {
+  const item = track(id)
+  if (!item || item.lines.length || item.plainLyrics || lyricRequests.has(id) || (!retry && lyricResults.has(id))) return
+  const cleanTitle = item.title.replace(/\s*[\[(](?:official (?:music )?(?:video|audio)|lyrics|lyric video|clipe oficial)[\])]\s*$/i,'')
+    .replace(/\s*\|\s*NCS Release\s*$/i,'').trim()
+  const parts = item.source==='youtube' ? cleanTitle.split(/\s+[-–—]\s+/,2) : []
+  const artist = (parts[1] ? parts[0] : item.artist).replace(/ - Topic$/i,'').trim()
+  const title = (parts[1] || cleanTitle).replace(/\s*[\[(](?:feat\.?|ft\.?).*?[\])]\s*$/i,'').trim()
+  if (!artist || !title) { lyricResults.set(id,'missing'); return }
+  lyricRequests.set(id,true)
+  renderLyrics()
+  updatePlayback()
+  try {
+    if (Date.now()<lyricRetryAfter) throw Error()
+    const url = new URL('https://lrclib.net/api/search')
+    url.search = new URLSearchParams({track_name:title,artist_name:artist})
+    const response = await fetch(url,{headers:{'Lrclib-Client':'Estereo (https://github.com/DisneyMjr/estereo)'},signal:AbortSignal.timeout(9000)})
+    if (response.status===429) {
+      const delay = Math.max(1,Number(response.headers.get('Retry-After'))||60)
+      lyricRetryAfter = Date.now()+delay*1100
+    }
+    if (!response.ok) throw Error()
+    const entries = await response.json()
+    const candidates = entries.filter(entry=>normalized(entry.trackName||'')===normalized(title) &&
+      (normalized(entry.artistName||'')===normalized(artist) || normalized(entry.artistName||'').split(/[,;&]/).map(value=>value.trim()).includes(normalized(artist.split(',')[0]))) &&
+      (!item.duration || Math.abs(entry.duration-item.duration)<=12))
+    const result = candidates.find(entry=>entry.syncedLyrics) || candidates.find(entry=>entry.plainLyrics)
+    if (!result) { lyricResults.set(id,'missing'); return }
+    if (item.lines.length || item.plainLyrics) return
+    await patchTrack(id,{lines:parseLrc(result.syncedLyrics || ''),plainLyrics:result.plainLyrics || '',lyricsSource:'LRCLIB'})
+    lyricResults.set(id,'loaded')
+  } catch { lyricResults.set(id,'error') }
+  finally {
+    lyricRequests.delete(id)
+    if (current===id) { renderLyrics(); updatePlayback() }
+  }
+}
+
+function lyricContent(item) {
+  if (item?.lines.length) return item.lines.map((line,index)=>button('line','Ir para '+clock(line.at),escape(line.words || '♪'),'class="line" data-id="'+index+'"')).join('')
+  if (item?.plainLyrics) return '<small>Letra sem sincronização</small><div class="plain-lyrics">'+escape(item.plainLyrics)+'</div>'
+  if (!item) return '<div class="lyrics-empty"><h2>Toque uma faixa para ver a letra</h2></div>'
+  if (lyricRequests.has(item.id)) return '<div class="lyrics-empty" role="status"><h2>Buscando letra…</h2></div>'
+  const failed = lyricResults.get(item.id)==='error'
+  return '<div class="lyrics-empty"><h2>'+(failed?'A busca de letras está indisponível':'Letra ainda indisponível')+'</h2><p>Você pode buscar novamente ou adicionar uma letra sincronizada.</p><div class="actions">'+
+    button('retry-lyrics','Buscar novamente','Buscar novamente')+button('attach','Adicionar arquivo LRC','Adicionar .lrc')+'</div></div>'
+}
+
+
 function renderLyrics() {
   if ($('#lyrics').hidden) return
   const item = track(current)
@@ -359,8 +427,7 @@ function renderLyrics() {
     '<div class="actions">'+button('offset-down','Adiantar letras','−')+'<small data-offset>'+((item?.offset||0).toFixed(1))+' s</small>'+
     button('offset-up','Atrasar letras','+')+button('attach','Vincular letra LRC','Vincular .lrc',item?'':'disabled')+'</div></header>'+
     '<div class="lyric-body"><div class="lyric-player">'+art(item)+'<h2>'+escape(item?.title || 'Nenhuma faixa')+'</h2><p>'+escape(item?.artist)+'</p>'+seek()+controls()+'</div>'+
-    '<div class="lyric-scroll">'+(item?.lines.length?item.lines.map((line,index)=>button('line','Ir para '+clock(line.at),escape(line.words || '♪'),'class="line" data-id="'+index+'"')).join(''):
-    '<div class="empty"><h2>Letra indisponível</h2><p>Vincule um arquivo LRC com marcações de tempo à faixa em reprodução.</p></div>')+'</div></div>'
+    '<div class="lyric-scroll">'+lyricContent(item)+'</div></div>'
 }
 function updatePlayback() {
   const duration = audio.duration
@@ -408,6 +475,7 @@ async function playTrack(id) {
   objectUrl = null
   if (current && current !== id) history.push(current)
   current = id
+  if (!$('#lyrics').hidden) loadLyrics(id)
   resolving = item.source === 'youtube'
   render()
   try {
@@ -515,6 +583,7 @@ const handlers = {
       go('home')
     } catch { notify('Informe um endereço HTTPS válido.') }
   },
+  'home-layout': id => { layout=id; localStorage.setItem('layout',id); renderView() },
   'retry-catalog': () => requestCatalog(),
   spotify: spotifyDialog,
   import: () => $('#files').click(),
@@ -566,8 +635,9 @@ const handlers = {
   'clear-queue': () => { pending=[]; renderQueue() },
   'queue-remove': id => { pending.splice(Number(id),1); renderQueue() },
   'queue-play': async id => { const [target]=pending.splice(Number(id),1); await playTrack(target) },
-  lyrics: () => { $('#lyrics').hidden=false; renderLyrics(); updatePlayback(); $('#lyrics button').focus() },
+  lyrics: () => { $('#lyrics').hidden=false; renderLyrics(); updatePlayback(); $('#lyrics button').focus(); loadLyrics(current) },
   'close-lyrics': () => { $('#lyrics').hidden=true; renderPlayer(); updatePlayback(); $('[data-action=lyrics]').focus() },
+  'retry-lyrics': () => loadLyrics(current,true),
   attach: () => $('#lyricsFile').click(),
   line: id => { const item=track(current); audio.currentTime=Math.max(0,item.lines[Number(id)].at+(item.offset||0)); updatePlayback() },
   'offset-down': () => current && patchTrack(current,{offset:Math.round(((track(current).offset||0)-.1)*10)/10}),
@@ -643,5 +713,6 @@ async function start() {
 start().catch(() => {
   $('#view').innerHTML='<h1>Biblioteca indisponível</h1><p>O armazenamento local não pôde ser aberto. Feche e reabra o aplicativo.</p>'
 })
+
 
 

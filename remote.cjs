@@ -41,7 +41,7 @@ async function searchVideos(query) {
       const time = text(video.lengthText)
       if (title && channel && /^\d+(?::[0-5]\d){1,2}$/.test(time)) {
         const duration = time.split(':').reduce((total,part)=>total*60+Number(part),0)
-        results.set(video.videoId,{videoId:video.videoId,title,channel,duration})
+        results.set(video.videoId,{videoId:video.videoId,title,channel,duration,cover:'https://i.ytimg.com/vi/'+video.videoId+'/hqdefault.jpg'})
       }
     }
     for (const value of Object.values(node)) visit(value)

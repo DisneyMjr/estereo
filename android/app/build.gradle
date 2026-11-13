@@ -16,7 +16,7 @@ tasks.register('copyEstereo', Copy) {
         include 'index.html', 'app.js', 'style.css', 'mobile.js'
     }
     into layout.buildDirectory.dir('generated/estereo')
-    filesMatching("index.html") { filter { line -> line.replace("media-src 'self' blob: https://*.googlevideo.com; ", '').replace("object-src 'none'", "connect-src https:; media-src 'self' blob: https:; object-src 'none'").replace('<script src="app.js" defer></script>', '<script src="mobile.js" defer></script><script src="app.js" defer></script>') } }
+    filesMatching("index.html") { filter { line -> line.replace('connect-src https://lrclib.net; ', '').replace("media-src 'self' blob: https://*.googlevideo.com; ", '').replace("object-src 'none'", "connect-src https:; media-src 'self' blob: https:; object-src 'none'").replace('<script src="app.js" defer></script>', '<script src="mobile.js" defer></script><script src="app.js" defer></script>') } }
 }
 tasks.named('copyEstereo') { from(rootProject.projectDir.parentFile) { include 'icon.png' } }
 tasks.named('preBuild') { dependsOn 'copyEstereo' }

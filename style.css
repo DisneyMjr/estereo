@@ -10,3 +10,9 @@ body{background-repeat:no-repeat}
 .track-info br{display:none}
 h2+.rows{margin-top:8px}
 .app-icon{width:26px;height:26px;margin-right:8px}
+.art{position:relative;overflow:hidden}.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.home-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,176px),1fr));gap:34px 24px}.home-grid .tile strong{font-weight:550;margin-top:9px}.home-grid .tile small{margin-top:5px}
+.home-toolbar{margin-bottom:14px}.home-toolbar button{padding:7px 13px}.home-toolbar button[aria-pressed=true]{background:var(--ink);color:var(--bg)}.home-toolbar input{padding:7px 10px}
+@media(max-width:720px){.home-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,110px),1fr));gap:16px 12px}}
+.lyrics-empty{display:grid;align-content:center;min-height:190px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.plain-lyrics{white-space:pre-wrap;font-size:clamp(17px,2.5vw,28px);line-height:1.65;margin-top:14px}
